@@ -22,7 +22,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
-    stiff: 100,
+    stiffness: 100,
     damping: 30,
     restDelta: 0.001
   });

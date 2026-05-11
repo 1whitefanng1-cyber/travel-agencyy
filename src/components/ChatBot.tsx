@@ -4,7 +4,19 @@ import { MessageSquare, Send, X, Bot, User, Sparkles } from "lucide-react";
 import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from "react-markdown";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined;
+    if (!apiKey) {
+      // In development/preview, we might want to warn instead of crash
+      console.warn("GEMINI_API_KEY is not defined");
+      return null;
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,20 +44,28 @@ export default function ChatBot() {
     setIsLoading(true);
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      const ai = getAI();
+      if (!ai) {
+        setMessages((prev) => [...prev, { role: "bot", text: "I'm sorry, I'm currently missing my API key to help you. Please set it up in the environment." }]);
+        return;
+      }
+      const model = ai.getGenerativeModel({
+        model: "gemini-1.5-flash",
+      });
+
+      const result = await model.generateContent({
         contents: [
           {
             role: "user",
             parts: [{ text: userMessage }]
           }
         ],
-        config: {
-          systemInstruction: "You are a luxury travel concierge for 'NomadNest Travels'. You are professional, sophisticated, and helpful. You suggest high-end destinations like Switzerland, Maldives, and Kashmir. You always encourage booking via our experts on WhatsApp."
-        }
+        generationConfig: {
+          maxOutputTokens: 1000,
+        },
       });
 
-      const botText = response.text || "I'm sorry, I couldn't process that. Please contact our support.";
+      const botText = result.response.text() || "I'm sorry, I couldn't process that. Please contact our support.";
       setMessages((prev) => [...prev, { role: "bot", text: botText }]);
     } catch (error) {
       console.error("AI Error:", error);
